@@ -13,6 +13,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "bun": "1.4.0"
+  },
   "dependencies": {
     "@google/genai": "^2.18.0",
     "@tuya/tuya-connector-nodejs": "^2.1.2",
