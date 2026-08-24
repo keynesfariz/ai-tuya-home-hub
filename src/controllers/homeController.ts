@@ -5,7 +5,7 @@ import { GeneratorFactory } from '../generators/GeneratorFactory';
 
 export const setHome = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { text, temperature, humidity, provider = 'gemini' } = req.body;
+    const { text, temperature, humidity, provider = 'gemini', preferred_response_lang = 'en' } = req.body;
 
     if (!text) {
       res.status(400).json({ error: 'Missing required field: text' });
@@ -24,7 +24,8 @@ export const setHome = async (req: Request, res: Response): Promise<void> => {
       text,
       temperature,
       humidity,
-      devices
+      devices,
+      preferred_response_lang
     );
 
     console.log('AI Generated Commands:', JSON.stringify(targetDeviceCommands, null, 2));

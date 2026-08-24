@@ -17,13 +17,14 @@ export class GroqProvider implements AiProvider {
     text: string,
     temperature: number | undefined,
     humidity: number | undefined,
-    devices: CachedDevice[]
+    devices: CachedDevice[],
+    preferred_response_lang?: string
   ): Promise<{ commands: TargetDeviceCommandSet[]; text: string }> {
     const prompt = buildGenerateCommandsPrompt(text, temperature, humidity, devices);
 
     // Groq doesn't natively enforce complex JSON schema natively like Gemini structured output in all models,
     // but it supports JSON mode. We provide instructions to return JSON.
-    const systemPrompt = getSystemPrompt();
+    const systemPrompt = getSystemPrompt(preferred_response_lang);
 
     const response = await this.groq.chat.completions.create({
       messages: [

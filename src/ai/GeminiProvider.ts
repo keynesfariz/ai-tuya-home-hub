@@ -17,7 +17,8 @@ export class GeminiProvider implements AiProvider {
     text: string,
     temperature: number | undefined,
     humidity: number | undefined,
-    devices: CachedDevice[]
+    devices: CachedDevice[],
+    preferred_response_lang?: string
   ): Promise<{ commands: TargetDeviceCommandSet[]; text: string }> {
     const prompt = buildGenerateCommandsPrompt(text, temperature, humidity, devices);
 
@@ -25,7 +26,7 @@ export class GeminiProvider implements AiProvider {
       model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
       contents: prompt,
       config: {
-        systemInstruction: getSystemPrompt(),
+        systemInstruction: getSystemPrompt(preferred_response_lang),
         responseMimeType: 'application/json'
       }
     });

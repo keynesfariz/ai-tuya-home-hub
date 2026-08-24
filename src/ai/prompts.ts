@@ -1,4 +1,5 @@
 import { CachedDevice } from '../tuya';
+import ISO6391 from 'iso-639-1';
 
 export const buildGenerateCommandsPrompt = (
   text: string,
@@ -19,7 +20,7 @@ export const buildGenerateCommandsPrompt = (
 
 export const buildClassifyDevicesPrompt = (rawDevices: any[]): string => {
   return `Classify the following Tuya devices into one of these types: 'AC', 'Light', or 'IR'.
-Analyze the device name to determine its type. The device names may be in Indonesian (e.g., "Lampu" for Light, "AC" for AC).
+The device names may be in any language. Analyze the meaning of the name in its respective language to determine its type.
 If the name indicates an air conditioner, return 'AC'.
 If the name indicates a light or bulb, return 'Light'.
 If the name indicates an IR blaster or universal remote, return 'IR'.
@@ -59,10 +60,16 @@ Valid codes:
 Do NOT generate any commands that are not in this list for the given device type.
 `;
 
-export const getSystemPrompt = () => {
+export const getSystemPrompt = (preferredResponseLang?: string) => {
+  let langInstruction = 'The "text" field in your JSON response MUST be in the same language as the user\'s request (e.g., Indonesian).';
+  if (preferredResponseLang) {
+    const fullLangName = ISO6391.getName(preferredResponseLang.toLowerCase()) || preferredResponseLang;
+    langInstruction = `The "text" field in your JSON response MUST be in ${fullLangName}. This overrides the language of the user's request.`;
+  }
+
   return `You are a Smart Home AI Assistant. Your task is to interpret a user's text request about their room (with current temperature and humidity if provided) and generate the appropriate JSON commands to control their Tuya devices.
 
-Note: The user's request may be in Indonesian. The "text" field in your JSON response MUST be in the same language as the user's request (e.g., Indonesian).
+Note: ${langInstruction}
 
 ${DEVICE_RULES}
 

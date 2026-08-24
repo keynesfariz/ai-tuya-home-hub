@@ -9,7 +9,8 @@ export interface AiProvider {
     text: string,
     temperature: number | undefined,
     humidity: number | undefined,
-    devices: CachedDevice[]
+    devices: CachedDevice[],
+    preferred_response_lang?: string
   ): Promise<{ commands: TargetDeviceCommandSet[]; text: string }>;
 
   classifyDevices(rawDevices: any[]): Promise<{ device_id: string; device_type: DeviceType }[]>;
