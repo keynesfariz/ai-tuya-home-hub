@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { setHome } from './controllers/homeController';
 import { connectRedis } from './redis';
+import { requireAuth } from './middleware/auth';
 
 dotenv.config();
 
@@ -12,13 +13,16 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Routes
-app.post('/set-home', setHome);
-
-// Health check
+// Health check (unprotected)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+// Auth middleware for all subsequent routes
+app.use(requireAuth);
+
+// Protected routes
+app.post('/set-home', setHome);
 
 const startServer = async () => {
   try {

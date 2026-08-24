@@ -15,8 +15,8 @@ export class GeminiProvider implements AiProvider {
 
   async generateCommands(
     text: string,
-    temperature: number,
-    humidity: number,
+    temperature: number | undefined,
+    humidity: number | undefined,
     devices: CachedDevice[]
   ): Promise<{ commands: TargetDeviceCommandSet[]; text: string }> {
     const prompt = buildGenerateCommandsPrompt(text, temperature, humidity, devices);

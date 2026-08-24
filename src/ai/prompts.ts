@@ -2,16 +2,19 @@ import { CachedDevice } from '../tuya';
 
 export const buildGenerateCommandsPrompt = (
   text: string,
-  temperature: number,
-  humidity: number,
+  temperature: number | undefined,
+  humidity: number | undefined,
   devices: CachedDevice[]
 ): string => {
-  return `User Request: "${text}"
-Current Room Temperature: ${temperature}°C
-Current Room Humidity: ${humidity}%
-Available Devices:
-${JSON.stringify(devices, null, 2)}
-`;
+  let prompt = `User Request: "${text}"\n`;
+  if (temperature !== undefined) {
+    prompt += `Current Room Temperature: ${temperature}°C\n`;
+  }
+  if (humidity !== undefined) {
+    prompt += `Current Room Humidity: ${humidity}%\n`;
+  }
+  prompt += `Available Devices:\n${JSON.stringify(devices, null, 2)}\n`;
+  return prompt;
 };
 
 export const buildClassifyDevicesPrompt = (rawDevices: any[]): string => {
@@ -57,7 +60,7 @@ Do NOT generate any commands that are not in this list for the given device type
 `;
 
 export const getSystemPrompt = () => {
-  return `You are a Smart Home AI Assistant. Your task is to interpret a user's text request about their room (with current temperature and humidity) and generate the appropriate JSON commands to control their Tuya devices.
+  return `You are a Smart Home AI Assistant. Your task is to interpret a user's text request about their room (with current temperature and humidity if provided) and generate the appropriate JSON commands to control their Tuya devices.
 
 Note: The user's request may be in Indonesian. The "text" field in your JSON response MUST be in the same language as the user's request (e.g., Indonesian).
 

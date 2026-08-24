@@ -7,8 +7,8 @@ export interface TargetDeviceCommandSet extends CachedDevice {
 export interface AiProvider {
   generateCommands(
     text: string,
-    temperature: number,
-    humidity: number,
+    temperature: number | undefined,
+    humidity: number | undefined,
     devices: CachedDevice[]
   ): Promise<{ commands: TargetDeviceCommandSet[]; text: string }>;
 

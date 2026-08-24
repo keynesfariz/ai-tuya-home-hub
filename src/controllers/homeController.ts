@@ -7,8 +7,8 @@ export const setHome = async (req: Request, res: Response): Promise<void> => {
   try {
     const { text, temperature, humidity, provider = 'gemini' } = req.body;
 
-    if (!text || temperature === undefined || humidity === undefined) {
-      res.status(400).json({ error: 'Missing required fields: text, temperature, humidity' });
+    if (!text) {
+      res.status(400).json({ error: 'Missing required field: text' });
       return;
     }
 
