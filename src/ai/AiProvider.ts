@@ -1,13 +1,7 @@
 import { CachedDevice, DeviceType } from '../tuya';
 
-export interface DeviceCommand {
-  code: string;
-  value: any;
-}
-
-export interface TargetDeviceCommandSet {
-  device_id: string;
-  commands: DeviceCommand[];
+export interface TargetDeviceCommandSet extends CachedDevice {
+  commands: { code: string; value: any }[];
 }
 
 export interface AiProvider {
@@ -16,7 +10,7 @@ export interface AiProvider {
     temperature: number,
     humidity: number,
     devices: CachedDevice[]
-  ): Promise<TargetDeviceCommandSet[]>;
+  ): Promise<{ commands: TargetDeviceCommandSet[]; text: string }>;
 
   classifyDevices(rawDevices: any[]): Promise<{ device_id: string; device_type: DeviceType }[]>;
 }

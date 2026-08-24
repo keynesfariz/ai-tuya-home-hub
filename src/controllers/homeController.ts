@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { fetchAndCacheDevices, executeCommands } from '../tuya';
+import { fetchAndCacheDevices } from '../tuyaApi';
 import { AiFactory } from '../ai/AiFactory';
+import { GeneratorFactory } from '../generators/GeneratorFactory';
 
 export const setHome = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -19,7 +20,7 @@ export const setHome = async (req: Request, res: Response): Promise<void> => {
 
     // 3. Generate Commands using AI
     console.log(`Using AI provider: ${provider} to generate commands...`);
-    const targetDeviceCommands = await aiProvider.generateCommands(
+    const { commands: targetDeviceCommands, text: aiMessage } = await aiProvider.generateCommands(
       text,
       temperature,
       humidity,
@@ -27,82 +28,38 @@ export const setHome = async (req: Request, res: Response): Promise<void> => {
     );
 
     console.log('AI Generated Commands:', JSON.stringify(targetDeviceCommands, null, 2));
+    console.log('AI Message:', aiMessage);
 
-    const results = [];
-
-    // 4. Execute commands on Tuya
-    for (const target of targetDeviceCommands) {
-      if (!target.device_id || !target.commands || target.commands.length === 0) {
-        continue;
-      }
-      try {
-        const device = devices.find((d: any) => d.device_id === target.device_id);
-        const isAc = device?.device_type === 'AC';
-
-        if (isAc) {
-          console.log(`Executing AC commands for device ${target.device_id} one by one:`, JSON.stringify(target.commands, null, 2));
-          let allSuccess = true;
-          let lastMsg = 'Executed';
-
-          for (let i = 0; i < target.commands.length; i++) {
-            const cmd = target.commands[i];
-            if (!('value' in cmd) || cmd.value === undefined || cmd.value === "") {
-              cmd.value = (cmd.code === 'PowerOn' || cmd.code === 'PowerOff') ? cmd.code : "";
-            }
-            
-            // Tuya requires ENUM and STRING types for IR AC commands.
-            // Even if AI generated numbers (e.g., T: 24), we must send them as strings ("24").
-            if (cmd.value !== undefined && cmd.value !== null) {
-              cmd.value = String(cmd.value);
-            }
-
-            console.log(`Sending AC command:`, JSON.stringify(cmd, null, 2));
-            const result = await executeCommands(target.device_id, [cmd]);
-            console.log(`AC command execution result for ${target.device_id}:`, JSON.stringify(result, null, 2));
-            if (!result.success) {
-              allSuccess = false;
-              lastMsg = `${result.msg}`;
-            }
-          }
-
-          results.push({
-            device_id: target.device_id,
-            success: allSuccess,
-            msg: allSuccess ? 'Executed all AC commands' : lastMsg
-          });
-        } else {
-          console.log(`Executing commands for device ${target.device_id} concurrently:`, JSON.stringify(target.commands, null, 2));
-
-          const promises = target.commands.map((cmd: any) =>
-            executeCommands(target.device_id, [cmd])
-          );
-
-          const promiseResults = await Promise.all(promises);
-          console.log(`Command execution results for ${target.device_id}:`, JSON.stringify(promiseResults, null, 2));
-
-          const allSuccess = promiseResults.every(r => r.success);
-          const lastMsg = promiseResults.length > 0 ? promiseResults[promiseResults.length - 1].msg : 'Executed';
-
-          results.push({
-            device_id: target.device_id,
-            success: allSuccess,
-            msg: allSuccess ? 'Executed all commands concurrently' : lastMsg
-          });
+    const results = await Promise.all(
+      targetDeviceCommands.map(async (target) => {
+        if (!target.device_id || !target.commands || Object.keys(target.commands).length === 0) {
+          return null;
         }
-      } catch (err: any) {
-        results.push({
-          device_id: target.device_id,
-          success: false,
-          error: err.message
-        });
-      }
-    }
+        try {
+          const generator = GeneratorFactory.getGenerator(target.device_type);
+          const result = await generator.execute(target, target.commands, devices);
+
+          return {
+            device_id: target.device_id,
+            success: result.success,
+            msg: result.success ? 'Command executed successfully' : result.msg
+          };
+        } catch (err: any) {
+          return {
+            device_id: target.device_id,
+            success: false,
+            error: err.message
+          };
+        }
+      })
+    );
 
     // 5. Return results
     res.json({
       success: true,
+      message: aiMessage,
       commands: targetDeviceCommands,
-      execution_results: results
+      execution_results: results.filter(Boolean)
     });
   } catch (error: any) {
     console.error('Error in /set-home:', error);

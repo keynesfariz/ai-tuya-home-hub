@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { AiProvider, TargetDeviceCommandSet } from './AiProvider';
 import { CachedDevice, DeviceType } from '../tuya';
-import { getSystemPrompt } from '../mappings/deviceSchemas';
+import { buildGenerateCommandsPrompt, buildClassifyDevicesPrompt, getSystemPrompt } from './prompts';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -18,50 +18,15 @@ export class GeminiProvider implements AiProvider {
     temperature: number,
     humidity: number,
     devices: CachedDevice[]
-  ): Promise<TargetDeviceCommandSet[]> {
-    const prompt = `User Request: "${text}"
-Current Room Temperature: ${temperature}°C
-Current Room Humidity: ${humidity}%
-Available Devices:
-${JSON.stringify(devices, null, 2)}
-`;
-
-    // We define the schema here using the SDK's Type enum
-    const responseSchema = {
-      type: Type.OBJECT,
-      properties: {
-        target_devices: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              device_id: { type: Type.STRING },
-              commands: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    code: { type: Type.STRING },
-                    value: { description: "Any value" } as any
-                  },
-                  required: ["code"]
-                }
-              }
-            },
-            required: ["device_id", "commands"]
-          }
-        }
-      },
-      required: ["target_devices"]
-    };
+  ): Promise<{ commands: TargetDeviceCommandSet[]; text: string }> {
+    const prompt = buildGenerateCommandsPrompt(text, temperature, humidity, devices);
 
     const response = await this.ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
       contents: prompt,
       config: {
         systemInstruction: getSystemPrompt(),
-        responseMimeType: 'application/json',
-        responseSchema: responseSchema
+        responseMimeType: 'application/json'
       }
     });
 
@@ -70,22 +35,27 @@ ${JSON.stringify(devices, null, 2)}
     }
 
     const parsed = JSON.parse(response.text);
-    return parsed.target_devices || [];
+    const targetDevices = parsed.target_devices || [];
+
+    const commands = targetDevices.map((target: any) => {
+      const device = devices.find(d => d.device_id === target.device_id);
+      return {
+        ...target,
+        device_name: device?.device_name || 'Unknown',
+        device_type: device?.device_type || 'Light'
+      };
+    });
+
+    return {
+      commands,
+      text: parsed.text || 'Command executed'
+    };
   }
 
   async classifyDevices(rawDevices: any[]): Promise<{ device_id: string; device_type: DeviceType }[]> {
     if (!rawDevices || rawDevices.length === 0) return [];
 
-    const prompt = `Classify the following Tuya devices into one of these types: 'AC', 'Light', or 'IR'.
-Analyze the device name to determine its type.
-If the name indicates an air conditioner, return 'AC'.
-If the name indicates a light or bulb, return 'Light'.
-If the name indicates an IR blaster or universal remote, return 'IR'.
-Default to 'Light' if unsure.
-
-Devices:
-${JSON.stringify(rawDevices.map(d => ({ id: d.id, name: d.name || d.title || '' })), null, 2)}
-`;
+    const prompt = buildClassifyDevicesPrompt(rawDevices);
 
     const responseSchema = {
       type: Type.OBJECT,
@@ -106,7 +76,7 @@ ${JSON.stringify(rawDevices.map(d => ({ id: d.id, name: d.name || d.title || '' 
     };
 
     const response = await this.ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -117,7 +87,7 @@ ${JSON.stringify(rawDevices.map(d => ({ id: d.id, name: d.name || d.title || '' 
     if (!response.text) {
       return [];
     }
-    
+
     try {
       const parsed = JSON.parse(response.text);
       return parsed.classifications || [];
